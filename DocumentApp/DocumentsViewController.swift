@@ -10,6 +10,7 @@ import UIKit
 final class DocumentsViewController: UIViewController {
 
     private let fileManagerService: FileManagerServiceProtocol
+    private let settingsManager: SettingsManagerProtocol
     private let directoryURL: URL
     private var items: [ContentItem] = []
     private let cellIdentifier = "ContentCell"
@@ -37,10 +38,14 @@ final class DocumentsViewController: UIViewController {
         action: #selector(didTapAddPhoto)
     )
 
-    init(fileManagerService: FileManagerServiceProtocol,
-         directoryURL: URL,
-         screenTitle: String? = nil) {
+    init(
+        fileManagerService: FileManagerServiceProtocol,
+        settingsManager: SettingsManagerProtocol,
+        directoryURL: URL,
+        screenTitle: String? = nil
+    ) {
         self.fileManagerService = fileManagerService
+        self.settingsManager = settingsManager
         self.directoryURL = directoryURL
         super.init(nibName: nil, bundle: nil)
         self.title = screenTitle ?? directoryURL.lastPathComponent
@@ -53,6 +58,19 @@ final class DocumentsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        loadContent()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSettingsChanged),
+            name: .settingsDidChange,
+            object: nil
+        )
+    }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func handleSettingsChanged() {
         loadContent()
     }
 
@@ -71,7 +89,12 @@ final class DocumentsViewController: UIViewController {
 
     private func loadContent() {
         do {
-            items = try fileManagerService.contentsOfDirectory(at: directoryURL)
+            var loaded = try fileManagerService.contentsOfDirectory(at: directoryURL)
+            loaded.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            if !settingsManager.isAscendingSort {
+                loaded.reverse()
+            }
+            items = loaded
         } catch {
             items = []
             presentErrorAlert(error)
@@ -156,7 +179,7 @@ extension DocumentsViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView,
                    trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let deleteAction = UIContextualAction(style: .destructive, title: "Удалить") { [weak self] _, _, completion in
+        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, completion in
             guard let self else {
                 completion(false)
                 return
@@ -184,6 +207,7 @@ extension DocumentsViewController: UITableViewDelegate {
 
         let folderVC = DocumentsViewController(
             fileManagerService: fileManagerService,
+            settingsManager: settingsManager,
             directoryURL: item.url
         )
         navigationController?.pushViewController(folderVC, animated: true)

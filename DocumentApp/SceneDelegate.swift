@@ -8,25 +8,52 @@
 import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-
+    
     var window: UIWindow?
-
+    private let authService: AuthServiceProtocol = AuthService()
+    private let fileManagerService: FileManagerServiceProtocol = FileManagerService()
+    private let settingsManager: SettingsManagerProtocol = SettingsManager()
+    
+    private lazy var documentsURL: URL = {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }()
+    
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
+        
         let window = UIWindow(windowScene: windowScene)
-        
-        let service = FileManagerService()
-        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let rootVC = DocumentsViewController(
-            fileManagerService: service,
-            directoryURL: documentsURL,
-            screenTitle: "Documents"
-        )
-        
-        window.rootViewController = UINavigationController(rootViewController: rootVC)
-        window.makeKeyAndVisible()
         self.window = window
+        
+        if authService.hasSavedPassword() {
+            showAuthScreen(mode: .signIn, in: window)
+        } else {
+            showAuthScreen(mode: .createPassword, in: window)
+        }
+        
+        window.makeKeyAndVisible()
     }
+    private func showAuthScreen(mode: AuthViewController.Mode, in window: UIWindow) {
+        let authVC = AuthViewController(authService: authService, mode: mode)
+        authVC.delegate = self
+        let nav = UINavigationController(rootViewController: authVC)
+        window.rootViewController = nav
+    }
+    
+    private func showMainScreen(in window: UIWindow) {
+        let tabBar = MainTabBarController(
+            fileManagerService: fileManagerService,
+            settingsManager: settingsManager,
+            authService: authService,
+            documentsURL: documentsURL
+        )
+        window.rootViewController = tabBar
+        
+        UIView.transition(with: window,
+                          duration: 0.3,
+                          options: .transitionCrossDissolve,
+                          animations: nil)
+    }
+
 
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
@@ -59,3 +86,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 }
 
+extension SceneDelegate: AuthViewControllerDelegate {
+    func authViewControllerDidAuthenticate(_ controller: AuthViewController) {
+        guard let window else { return }
+        showMainScreen(in: window)
+    }
+
+    func authViewControllerDidCancel(_ controller: AuthViewController) {
+        // Отмена возможна только на экране смены пароля — он закрылся модалкой, ничего не делаем.
+    }
+}
