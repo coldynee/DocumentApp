@@ -52,6 +52,24 @@ final class MainTabBarController: UITabBarController {
                                               image: UIImage(systemName: "gear"),
                                               selectedImage: UIImage(systemName: "gear"))
         
-        viewControllers = [docsNav, settingsNav]
+        let randomViewModel = RandomQuoteViewModel(
+            realmService: RealmService(),
+            networkService: ChuckNorrisNetworkService.shared
+        )
+        let randomQuoteVC = RandomQuoteViewController(viewModel: randomViewModel)
+        let randomNav = UINavigationController(rootViewController: randomQuoteVC)
+        randomNav.tabBarItem = UITabBarItem(title: "Загрузка", image: UIImage(systemName: "arrow.down.circle"), tag: 0)
+        
+        let allQuotesViewModel = AllQuotesViewModel(realmService: RealmService())
+        let allQuotesVC = AllQuotesViewController(viewModel: allQuotesViewModel)
+        let allNav = UINavigationController(rootViewController: allQuotesVC)
+        allNav.tabBarItem = UITabBarItem(title: "Все цитаты", image: UIImage(systemName: "list.bullet"), tag: 1)
+        
+        let categoriesViewModel = CategoriesViewModel(realmService: RealmService())
+        let categoriesVC = CategoriesViewController(viewModel: categoriesViewModel)
+        let catNav = UINavigationController(rootViewController: categoriesVC)
+        catNav.tabBarItem = UITabBarItem(title: "Категории", image: UIImage(systemName: "folder"), tag: 2)
+        
+        viewControllers = [docsNav, settingsNav, randomNav, allNav, catNav]
     }
 }
